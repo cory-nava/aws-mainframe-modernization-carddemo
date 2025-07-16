@@ -4,6 +4,7 @@
 - [Description](#description)
 - [Technologies used](#technologies-used)
 - [Installation on the mainframe](#installation-on-the-mainframe)
+- [Local Testing with GnuCOBOL (macOS)](#local-testing-with-gnucobol-macos)
 - [Application Details](#application-details)
   - [User Functions](#user-functions)
   - [Admin Functions](#admin-functions)
@@ -157,6 +158,36 @@ To install this repository on the mainframe please follow the following steps
      - Enter userid ADMIN001 and the initially configured password PASSWORD to manage users
      - Enter userid USER0001 and the initially configured password PASSWORD to access back office functions
    * For batch            : See the instructions for running full batch below.
+
+## Local Testing with GnuCOBOL (macOS)
+
+While this application is designed for a mainframe environment, it is possible to run unit tests on a local machine, such as a MacBook Pro with Apple Silicon (M1/M2/M3/M4). This allows for rapid, isolated testing of individual programs without needing access to a mainframe.
+
+This testing approach was inspired by Dave Guarino's blog post, ["A legacy systems moonshot: AI for characterization test generation,"](https://buttondown.email/daveguarino/archive/a-legacy-systems-moonshot-ai-for/) which explores using modern tools to create a safety net for legacy systems.
+
+For a detailed explanation of the testing strategy, see the [TESTING.md](TESTING.md) file.
+
+### Prerequisites
+
+You will need to install the following tools using [Homebrew](https://brew.sh/):
+
+-   **GnuCOBOL:** A free, open-source COBOL compiler.
+-   **Java:** Required by some of the build and testing tools.
+
+```sh
+brew install gnucobol
+brew install java
+```
+
+### Running the Tests
+
+Once the prerequisites are installed, you can run the unit tests with the following command:
+
+```sh
+make test
+```
+
+This will compile the necessary COBOL programs and run the test suite. You should see output indicating that the test cases have passed.
 
 ## Running full batch 
    
@@ -320,5 +351,3 @@ We are planning a v2 of this application in Q1 2023.
 Watch this space for updates
 
 <br/>
-
-
