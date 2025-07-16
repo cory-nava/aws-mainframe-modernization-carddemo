@@ -1,0 +1,4 @@
+# Ignore version control, build output, and diagrams
+.git
+out
+diagrams
