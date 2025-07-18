@@ -189,6 +189,64 @@ make test
 
 This will compile the necessary COBOL programs and run the test suite. You should see output indicating that the test cases have passed.
 
+## Docker Environment Setup
+
+This project includes a Dockerfile that sets up a Linux environment with GnuCOBOL, Hercules (for mainframe emulation), and the TK4- MVS distribution. This allows you to run the mainframe application in a containerized environment.
+
+### Building the Docker Image
+
+To build the Docker image, navigate to the root of this project and run:
+
+```bash
+docker build -t carddemo .
+```
+
+This command will build the image and tag it as `carddemo`. This process may take some time as it downloads and configures the mainframe emulation environment.
+
+### Running the Mainframe Emulator
+
+Once the Docker image is built, you can run the mainframe emulator. This will start the Hercules emulator and boot the MVS operating system.
+
+Open your terminal and run:
+
+```bash
+docker run -it --rm -w / carddemo ./mvs
+```
+
+This command will:
+*   `docker run`: Start a new container.
+*   `-it`: Open an interactive terminal session.
+*   `--rm`: Automatically remove the container when you exit.
+*   `-w /`: Set the working directory inside the container to the root (`/`), which is necessary for the MVS startup script.
+*   `carddemo`: Use the Docker image you just built.
+*   `./mvs`: Execute the MVS startup script.
+
+This terminal will become the mainframe's system console. You will see a lot of output as MVS boots up.
+
+### Connecting a 3270 Terminal
+
+While the mainframe is booting in the first terminal, you need to connect a 3270 terminal to interact with it.
+
+1.  **Open a NEW, separate terminal window** on your local machine.
+2.  **Find the Container ID:** In this new terminal, run `docker ps` to get the `CONTAINER ID` of your running `carddemo` container.
+    ```bash
+    docker ps
+    ```
+3.  **Connect the 3270 Terminal:** Use the `docker exec` command with the `CONTAINER ID` you found to launch `c3270` and connect to the mainframe.
+    ```bash
+    docker exec -it <CONTAINER_ID> c3270 localhost:3270
+    ```
+    Replace `<CONTAINER_ID>` with the actual ID.
+
+This will open a 3270 terminal window, and after MVS has finished booting, you should see the MVS logon screen.
+
+### Stopping the Mainframe Container
+
+To stop the running mainframe container, you can either:
+
+*   **Press `Ctrl+C`** in the terminal where you ran the `docker run` command (the mainframe console).
+*   **Use `docker stop`:** In a separate terminal, find the `CONTAINER ID` using `docker ps` and then run `docker stop <CONTAINER_ID>`.
+
 ## Running full batch 
    
   * Execute the following JCLs in order
