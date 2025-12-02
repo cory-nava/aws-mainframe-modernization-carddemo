@@ -210,14 +210,14 @@ Once the Docker image is built, you can run the mainframe emulator. This will st
 Open your terminal and run:
 
 ```bash
-docker run -it --rm -w / carddemo ./mvs
+docker run -it --rm -w /opt/tk4-mvs carddemo ./mvs
 ```
 
 This command will:
 *   `docker run`: Start a new container.
 *   `-it`: Open an interactive terminal session.
 *   `--rm`: Automatically remove the container when you exit.
-*   `-w /`: Set the working directory inside the container to the root (`/`), which is necessary for the MVS startup script.
+*   `-w /opt/tk4-mvs`: Set the working directory inside the container to the TK4- MVS installation directory.
 *   `carddemo`: Use the Docker image you just built.
 *   `./mvs`: Execute the MVS startup script.
 
