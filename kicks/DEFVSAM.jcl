@@ -1,0 +1,119 @@
+//DEFVSAM  JOB (ACCT),'DEFINE VSAM FILES',CLASS=A,MSGCLASS=A,
+//             MSGLEVEL=(1,1),NOTIFY=&SYSUID
+//*********************************************************************
+//*  DEFINE VSAM FILES FOR CARDDEMO ON MVS 3.8J
+//*  This job creates all VSAM KSDS files needed by CardDemo
+//*  Run this BEFORE loading data
+//*
+//*  IMPORTANT: Adjust VOLUMES parameter to match your DASD
+//*********************************************************************
+//*
+//DEFVSAM  EXEC PGM=IDCAMS
+//SYSPRINT DD  SYSOUT=*
+//SYSIN    DD  *
+  /* DELETE EXISTING FILES (IGNORE ERRORS IF NOT FOUND) */
+
+  DELETE CARDDEMO.USRSEC.VSAM.KSDS CLUSTER PURGE
+  SET MAXCC=0
+
+  DELETE CARDDEMO.ACCTDATA.VSAM.KSDS CLUSTER PURGE
+  SET MAXCC=0
+
+  DELETE CARDDEMO.CARDDATA.VSAM.KSDS CLUSTER PURGE
+  SET MAXCC=0
+
+  DELETE CARDDEMO.CUSTDATA.VSAM.KSDS CLUSTER PURGE
+  SET MAXCC=0
+
+  DELETE CARDDEMO.CARDXREF.VSAM.KSDS CLUSTER PURGE
+  SET MAXCC=0
+
+  DELETE CARDDEMO.TRANSACT.VSAM.KSDS CLUSTER PURGE
+  SET MAXCC=0
+
+  /* DEFINE USER SECURITY FILE */
+  DEFINE CLUSTER -
+         (NAME(CARDDEMO.USRSEC.VSAM.KSDS) -
+          INDEXED -
+          KEYS(8 0) -
+          RECORDSIZE(80 80) -
+          TRACKS(5 5) -
+          VOLUMES(PUB001) -
+          SHAREOPTIONS(2 3) ) -
+         DATA -
+         (NAME(CARDDEMO.USRSEC.VSAM.KSDS.DATA)) -
+         INDEX -
+         (NAME(CARDDEMO.USRSEC.VSAM.KSDS.INDEX))
+
+  /* DEFINE ACCOUNT DATA FILE */
+  DEFINE CLUSTER -
+         (NAME(CARDDEMO.ACCTDATA.VSAM.KSDS) -
+          INDEXED -
+          KEYS(11 0) -
+          RECORDSIZE(300 300) -
+          TRACKS(15 15) -
+          VOLUMES(PUB001) -
+          SHAREOPTIONS(2 3) ) -
+         DATA -
+         (NAME(CARDDEMO.ACCTDATA.VSAM.KSDS.DATA)) -
+         INDEX -
+         (NAME(CARDDEMO.ACCTDATA.VSAM.KSDS.INDEX))
+
+  /* DEFINE CARD DATA FILE */
+  DEFINE CLUSTER -
+         (NAME(CARDDEMO.CARDDATA.VSAM.KSDS) -
+          INDEXED -
+          KEYS(16 0) -
+          RECORDSIZE(150 150) -
+          TRACKS(10 10) -
+          VOLUMES(PUB001) -
+          SHAREOPTIONS(2 3) ) -
+         DATA -
+         (NAME(CARDDEMO.CARDDATA.VSAM.KSDS.DATA)) -
+         INDEX -
+         (NAME(CARDDEMO.CARDDATA.VSAM.KSDS.INDEX))
+
+  /* DEFINE CUSTOMER DATA FILE */
+  DEFINE CLUSTER -
+         (NAME(CARDDEMO.CUSTDATA.VSAM.KSDS) -
+          INDEXED -
+          KEYS(9 0) -
+          RECORDSIZE(500 500) -
+          TRACKS(20 20) -
+          VOLUMES(PUB001) -
+          SHAREOPTIONS(2 3) ) -
+         DATA -
+         (NAME(CARDDEMO.CUSTDATA.VSAM.KSDS.DATA)) -
+         INDEX -
+         (NAME(CARDDEMO.CUSTDATA.VSAM.KSDS.INDEX))
+
+  /* DEFINE CARD CROSS REFERENCE FILE */
+  DEFINE CLUSTER -
+         (NAME(CARDDEMO.CARDXREF.VSAM.KSDS) -
+          INDEXED -
+          KEYS(16 0) -
+          RECORDSIZE(50 50) -
+          TRACKS(5 5) -
+          VOLUMES(PUB001) -
+          SHAREOPTIONS(2 3) ) -
+         DATA -
+         (NAME(CARDDEMO.CARDXREF.VSAM.KSDS.DATA)) -
+         INDEX -
+         (NAME(CARDDEMO.CARDXREF.VSAM.KSDS.INDEX))
+
+  /* DEFINE TRANSACTION FILE */
+  DEFINE CLUSTER -
+         (NAME(CARDDEMO.TRANSACT.VSAM.KSDS) -
+          INDEXED -
+          KEYS(16 0) -
+          RECORDSIZE(350 350) -
+          TRACKS(30 30) -
+          VOLUMES(PUB001) -
+          SHAREOPTIONS(2 3) ) -
+         DATA -
+         (NAME(CARDDEMO.TRANSACT.VSAM.KSDS.DATA)) -
+         INDEX -
+         (NAME(CARDDEMO.TRANSACT.VSAM.KSDS.INDEX))
+
+/*
+//

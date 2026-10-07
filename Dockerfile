@@ -53,6 +53,34 @@ RUN echo "CONSOLE" > /opt/tk4-mvs/unattended/mode
 # Add CTCI device for TCP/IP networking.
 RUN echo "0700-0701 CTCI 10.0.0.2 10.0.0.1" >> /opt/tk4-mvs/conf/tk4-.cnf
 
+# Download and extract KICKS for TSO (CICS-compatible transaction processor)
+# KICKS allows running CICS-style applications on MVS 3.8j
+RUN mkdir -p /opt/kicks && \
+    wget --no-check-certificate https://github.com/moshix/kicks/raw/master/kicks-tso-v1r5m0.zip -O /opt/kicks/kicks-tso-v1r5m0.zip && \
+    unzip /opt/kicks/kicks-tso-v1r5m0.zip -d /opt/kicks || true && \
+    rm /opt/kicks/kicks-tso-v1r5m0.zip
+
+# Create a helper script for KICKS installation guidance
+RUN echo '#!/bin/bash' > /opt/kicks/install-kicks.sh && \
+    echo 'echo "=============================================="' >> /opt/kicks/install-kicks.sh && \
+    echo 'echo "KICKS Installation Guide for TK4- MVS"' >> /opt/kicks/install-kicks.sh && \
+    echo 'echo "=============================================="' >> /opt/kicks/install-kicks.sh && \
+    echo 'echo ""' >> /opt/kicks/install-kicks.sh && \
+    echo 'echo "KICKS files are located at: /opt/kicks/kicks-tso-v1r5m0/"' >> /opt/kicks/install-kicks.sh && \
+    echo 'echo ""' >> /opt/kicks/install-kicks.sh && \
+    echo 'echo "Installation Steps (run inside MVS via 3270 terminal):"' >> /opt/kicks/install-kicks.sh && \
+    echo 'echo "1. Log on to TSO as HERC01 or HERC02"' >> /opt/kicks/install-kicks.sh && \
+    echo 'echo "2. Use IND\$FILE or FTP to upload kicks-tso-v1r5m0/xmi/kicks.v1r5m0.install.xmi"' >> /opt/kicks/install-kicks.sh && \
+    echo 'echo "3. Run RECEIVE INDSN(uploaded.xmi) to unpack"' >> /opt/kicks/install-kicks.sh && \
+    echo 'echo "4. Follow prompts to install to KICKS.V1R5M0.INSTALL"' >> /opt/kicks/install-kicks.sh && \
+    echo 'echo "5. Edit and submit V1R5M0 member to unpack all datasets"' >> /opt/kicks/install-kicks.sh && \
+    echo 'echo ""' >> /opt/kicks/install-kicks.sh && \
+    echo 'echo "For detailed instructions, see:"' >> /opt/kicks/install-kicks.sh && \
+    echo 'echo "  - /opt/kicks/kicks-tso-v1r5m0/User'\''s Guide/"' >> /opt/kicks/install-kicks.sh && \
+    echo 'echo "  - https://www.jaymoseley.com/hercules/kicks/index.htm"' >> /opt/kicks/install-kicks.sh && \
+    echo 'echo ""' >> /opt/kicks/install-kicks.sh && \
+    chmod +x /opt/kicks/install-kicks.sh
+
 # Set the working directory for the application code
 WORKDIR /app
 
@@ -68,6 +96,9 @@ RUN make
 # Set the default command to open a bash shell when the container starts.
 CMD ["/bin/bash"]
 
-# Expose port 21 for FTP access.
-EXPOSE 21
+# Expose ports for access:
+# - 21: FTP access
+# - 3270: 3270 terminal access
+# - 3505: Card reader (for submitting JCL)
+EXPOSE 21 3270 3505
 

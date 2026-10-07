@@ -1,0 +1,301 @@
+================================================================================
+                    KICKS & CARDDEMO INSTALLATION GUIDE
+                         For TK4- MVS 3.8j
+================================================================================
+
+This guide walks you through installing KICKS and CardDemo after starting MVS
+with the start-mvs.sh script.
+
+OVERVIEW
+--------
+KICKS is a CICS-compatible transaction processor that runs on MVS 3.8j.
+CardDemo is a sample credit card management application that demonstrates
+KICKS/CICS programming concepts including BMS screens, VSAM files, and
+COBOL programs.
+
+The installation process:
+1. Start MVS in Docker container
+2. Mount KICKS tape and copy to disk
+3. Install KICKS via TSO RECEIVE
+4. Upload CardDemo source files
+5. Compile and link programs
+6. Test the application
+
+================================================================================
+PHASE 1: START MVS AND PREPARE KICKS TAPE
+================================================================================
+
+1. From the project root, run:
+   ./start-mvs.sh
+
+   This script:
+   - Validates Docker environment
+   - Converts KICKS XMI file to Hercules AWS tape format
+   - Starts TK4- MVS with ports 3270, 2121 (FTP), and 8038 (web console)
+
+2. Wait for MVS to boot (watch the Hercules console).
+   When you see repeated "HHC01603I *" messages, MVS is ready.
+
+3. Open a NEW terminal and connect the 3270 terminal:
+   docker exec -it carddemo-mvs c3270 localhost:3270
+
+4. The start-mvs.sh script automatically copies the AWS tape file to the
+   container. Mount it in the HERCULES CONSOLE (where MVS is running):
+
+   devinit 480 /opt/tk4-mvs/tapes/kicks.aws
+
+   You should see:
+   HHC00221I 0:0480 Tape file /opt/tk4-mvs/tapes/kicks.aws ...
+   HHC02245I 0:0480 device initialized
+
+================================================================================
+PHASE 2: COPY TAPE TO MVS DATASET
+================================================================================
+
+The KICKS XMI file is now mounted as a virtual tape at device address 480.
+We need to copy it to a disk dataset before we can use TSO RECEIVE.
+
+1. Log into TSO:
+   - At 'ENTER USERID': type HERC01
+   - Press Enter, then enter password: CUL8TR
+   - At the TSO Applications menu, press PF3 or type X to get READY prompt
+
+2. Use RPF to create and submit JCL:
+   a) From READY prompt, type: RPF
+   b) Select option 2 (Edit)
+   c) Enter dataset name: HERC01.WORK.JCL
+   d) When prompted to create, say YES
+   e) Create a member called TAPECOPY with this JCL:
+
+--------------------------------------------------------------------------------
+//TAPECOPY JOB (ACCT),'COPY KICKS TAPE',CLASS=A,MSGCLASS=H,
+//             MSGLEVEL=(1,1),NOTIFY=HERC01
+//*
+//* COPY KICKS XMI FROM TAPE TO DISK
+//* The tape is mounted at device 480 (via devinit command)
+//*
+//STEP1    EXEC PGM=IEBGENER
+//SYSPRINT DD SYSOUT=*
+//SYSIN    DD DUMMY
+//SYSUT1   DD UNIT=3420,VOL=(,RETAIN,SER=KICKS),DISP=OLD,
+//            LABEL=(1,BLP),
+//            DCB=(RECFM=FB,LRECL=80,BLKSIZE=3120)
+//SYSUT2   DD DSN=HERC01.KICKS.XMI,DISP=(NEW,CATLG),
+//            UNIT=SYSDA,SPACE=(CYL,(100,50)),
+//            DCB=(RECFM=FB,LRECL=80,BLKSIZE=3120)
+--------------------------------------------------------------------------------
+
+   NOTE: In RPF editor:
+   - Type the JCL exactly as shown (columns matter!)
+   - Line continuations must have a non-blank in column 72
+   - The continuation must start in column 16
+   - Type SAVE on command line to save
+   - Type SUBMIT on command line to submit
+
+3. Check job status:
+   - Exit RPF (type END or press PF3)
+   - At READY prompt, type: ST
+
+   Look for TAPECOPY job - it should show:
+   TAPECOPY  JOBnnnnn  OUTPUT
+
+   If it shows RC=0000, the copy succeeded!
+
+4. If the job fails, check output:
+   OUTPUT TAPECOPY PRINT(*)
+
+   Common errors:
+   - "NO VOLUME ON UNIT" = Tape not mounted (run devinit command again)
+   - "JCL ERROR" = Check JCL syntax, especially continuation columns
+
+================================================================================
+PHASE 2B: RECEIVE THE KICKS PACKAGE
+================================================================================
+
+Once the XMI file is on disk, use TSO RECEIVE to unpack it:
+
+1. At READY prompt, type:
+   RECEIVE INDSN('HERC01.KICKS.XMI')
+
+2. When prompted for restore parameters, just press Enter to accept defaults.
+   The dataset will be restored to HERC01.KICKS.V1R5M0.INSTALL
+
+3. Edit and submit the installation job:
+   EDIT 'HERC01.KICKS.V1R5M0.INSTALL(V1R5M0)' OLD
+
+4. In the editor:
+   - Change UID=HERC02 to UID=HERC01 if needed
+   - Type SUBMIT on the command line and press Enter
+   - Type END to exit editor
+
+5. Check job status:
+   ST HERC01
+
+   Wait for all jobs to complete (RC=0000 is success)
+
+================================================================================
+PHASE 3: CONFIGURE KICKS
+================================================================================
+
+1. Run the KICKS configuration CLIST:
+   EXEC 'KICKS.KICKSSYS.V1R5M0.CLIST(KFIX)'
+
+2. When prompted:
+   - Enter KICKS for the High Level Qualifier
+   - Accept other defaults or customize as needed
+
+3. Start KICKS to verify installation:
+   EXEC 'KICKS.KICKSSYS.V1R5M0.CLIST(KICKS)'
+
+4. You should see the KICKS startup screen. Press Enter.
+   Try transaction KSGM (Good Morning) to verify it works.
+
+5. Exit KICKS:
+   - Press PA1 (on Mac in c3270: try Esc+1, or use the Keypad menu)
+   - Or enter transaction KSSF to shut down
+
+================================================================================
+PHASE 4: UPLOAD CARDDEMO SOURCE FILES
+================================================================================
+
+After KICKS is installed, you need to upload CardDemo source files.
+
+METHOD A: Using Python FTP (Recommended for macOS)
+---------------------------------------------------
+Run the upload script from your host terminal:
+   python3 kicks/upload-carddemo.py
+
+This handles the complexities of FTP transfer to MVS datasets.
+
+METHOD B: Manual FTP
+--------------------
+1. Create datasets on MVS (from TSO READY prompt):
+
+   Note: TSO ALLOCATE syntax on MVS 3.8j. Each is a single command:
+
+   ALLOC DA('CARDDEMO.COBOL') NEW CATALOG DSORG(PO) RECFM(F,B) LRECL(80) BLKSIZE(6160) SPACE(5,5) CYL DIR(50)
+
+   ALLOC DA('CARDDEMO.COPY') NEW CATALOG DSORG(PO) RECFM(F,B) LRECL(80) BLKSIZE(6160) SPACE(2,2) CYL DIR(50)
+
+   ALLOC DA('CARDDEMO.BMS') NEW CATALOG DSORG(PO) RECFM(F,B) LRECL(80) BLKSIZE(6160) SPACE(2,2) CYL DIR(50)
+
+   ALLOC DA('CARDDEMO.JCL') NEW CATALOG DSORG(PO) RECFM(F,B) LRECL(80) BLKSIZE(6160) SPACE(2,2) CYL DIR(50)
+
+2. Upload files via FTP (from your local machine):
+
+   ftp localhost 2121
+   User: HERC01
+   Password: CUL8TR
+
+   ascii
+   cd CARDDEMO.COBOL
+   mput app/cbl/*.cbl
+
+   cd ../CARDDEMO.COPY
+   mput app/cpy/*.cpy
+
+   cd ../CARDDEMO.BMS
+   mput app/bms/*.bms
+
+   cd ../CARDDEMO.JCL
+   mput kicks/*.jcl
+
+   quit
+
+================================================================================
+PHASE 5: BUILD CARDDEMO FOR KICKS
+================================================================================
+
+From TSO, submit the JCL jobs in this order:
+
+1. SUBMIT 'CARDDEMO.JCL(DEFVSAM)'    - Define VSAM files
+2. SUBMIT 'CARDDEMO.JCL(LOADUSR)'    - Load user data
+3. SUBMIT 'CARDDEMO.JCL(ASMFCT)'     - Assemble FCT
+4. SUBMIT 'CARDDEMO.JCL(ASMPCT)'     - Assemble PCT
+5. SUBMIT 'CARDDEMO.JCL(ASMPPT)'     - Assemble PPT
+6. SUBMIT 'CARDDEMO.JCL(ASMMAP)'     - Compile BMS maps
+7. SUBMIT 'CARDDEMO.JCL(COMPCOB)'    - Compile COBOL programs
+
+Check each job completes successfully:
+   ST HERC01
+
+================================================================================
+PHASE 6: TEST CARDDEMO
+================================================================================
+
+1. Start KICKS:
+   EXEC 'KICKS.KICKSSYS.V1R5M0.CLIST(KICKS)'
+
+2. Enter transaction CC00 (CardDemo signon)
+
+3. Log in with:
+   User ID:  ADMIN001
+   Password: PASSWORD
+
+4. You should see the CardDemo main menu!
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Problem: devinit command not recognized
+Solution: Make sure you're typing in the HERCULES console (where MVS runs),
+          not in the 3270 terminal.
+
+Problem: TAPECOPY job fails with "NO VOLUME ON UNIT"
+Solution: The tape isn't mounted. Run: devinit 480 /opt/tk4-mvs/tapes/kicks.aws
+
+Problem: TAPECOPY job fails with JCL ERROR
+Solution: Check JCL syntax carefully:
+          - Line 1 must end with comma if continuing
+          - Continuation line must start in columns 4-16
+          - Column 72 of continued line must be non-blank
+
+Problem: RECEIVE fails with "dataset not found"
+Solution: Check the TAPECOPY job completed successfully first.
+          Use LISTCAT ENT('HERC01.*') to see datasets.
+
+Problem: Job fails - how to see output?
+Solution: OUTPUT HERC01(jobname) PRINT(*)
+
+Problem: KICKS transaction not found
+Solution: Verify PCT/PPT assembly completed. Check KICKS system messages.
+
+Problem: FTP on macOS crashes or hangs
+Solution: Use Python FTP script instead (METHOD A in Phase 4)
+
+================================================================================
+QUICK REFERENCE - TSO COMMANDS
+================================================================================
+
+LISTCAT ENT('HERC01.*')     - List your datasets
+ST HERC01                    - Show job status
+OUTPUT jobname PRINT(*)      - View job output
+EDIT 'dataset(member)'       - Edit a file
+SUBMIT 'dataset(member)'     - Submit JCL
+FREE ALL                     - Free allocated datasets
+LOGOFF                       - Log off TSO
+
+================================================================================
+QUICK REFERENCE - HERCULES CONSOLE COMMANDS
+================================================================================
+
+devinit 480 /path/file.aws   - Mount tape at device 480
+devlist                      - List all devices
+/S MVS                       - Start MVS (if stopped)
+/P MVS                       - Stop MVS gracefully
+quit                         - Exit Hercules
+
+================================================================================
+QUICK REFERENCE - RPF EDITOR COMMANDS
+================================================================================
+
+SAVE                         - Save the file
+SUBMIT                       - Submit JCL
+END                          - Exit editor
+TOP                          - Go to top of file
+BOTTOM                       - Go to bottom of file
+FIND string                  - Search for string
+CHANGE /old/new/             - Replace text
+
+================================================================================

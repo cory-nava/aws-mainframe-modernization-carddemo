@@ -205,21 +205,24 @@ This command will build the image and tag it as `carddemo`. This process may tak
 
 ### Running the Mainframe Emulator
 
-Once the Docker image is built, you can run the mainframe emulator. This will start the Hercules emulator and boot the MVS operating system.
+Once the Docker image is built, use the provided startup script which configures all necessary ports:
 
-Open your terminal and run:
+```bash
+./start-mvs.sh
+```
+
+This script will:
+*   Map port 3270 for 3270 terminal access
+*   Map port 2121 for FTP file uploads
+*   Map port 8038 for Hercules web console
+*   Copy the KICKS installation file to your local directory
+*   Start MVS interactively
+
+**Alternative manual startup** (basic, without FTP):
 
 ```bash
 docker run -it --rm -w /opt/tk4-mvs carddemo ./mvs
 ```
-
-This command will:
-*   `docker run`: Start a new container.
-*   `-it`: Open an interactive terminal session.
-*   `--rm`: Automatically remove the container when you exit.
-*   `-w /opt/tk4-mvs`: Set the working directory inside the container to the TK4- MVS installation directory.
-*   `carddemo`: Use the Docker image you just built.
-*   `./mvs`: Execute the MVS startup script.
 
 This terminal will become the mainframe's system console. You will see a lot of output as MVS boots up.
 
@@ -246,6 +249,59 @@ To stop the running mainframe container, you can either:
 
 *   **Press `Ctrl+C`** in the terminal where you ran the `docker run` command (the mainframe console).
 *   **Use `docker stop`:** In a separate terminal, find the `CONTAINER ID` using `docker ps` and then run `docker stop <CONTAINER_ID>`.
+
+### Installing KICKS (CICS-Compatible Transaction Processor)
+
+The Docker image includes [KICKS](https://github.com/moshix/kicks), a CICS-compatible transaction processor for MVS 3.8j. KICKS allows running CICS-style applications like CardDemo on the TK4- environment.
+
+> **Note:** CardDemo was designed for IBM CICS. KICKS provides source-level compatibility, meaning programs need to be recompiled with the KICKS translator but should require minimal code changes.
+
+#### KICKS Installation Steps
+
+1.  **View installation guide:** Run the helper script in the container:
+    ```bash
+    docker exec -it <CONTAINER_ID> /opt/kicks/install-kicks.sh
+    ```
+
+2.  **Access KICKS files:** The KICKS distribution is located at `/opt/kicks/kicks-tso-v1r5m0/` inside the container.
+
+3.  **Install KICKS on MVS:** From the 3270 terminal logged into TSO:
+    - Upload `/opt/kicks/kicks-tso-v1r5m0/xmi/kicks.v1r5m0.install.xmi` via FTP or IND$FILE
+    - Run `RECEIVE INDSN('your.uploaded.xmi')` to unpack
+    - Edit and submit the `V1R5M0` member to expand all datasets
+    - Run the KFIX CLIST to customize for your environment
+
+4.  **Start KICKS:** Once installed, execute from TSO:
+    ```
+    EXEC 'KICKS.KICKSSYS.V1R5M0.CLIST(KICKS)'
+    ```
+
+For detailed installation instructions, see:
+- [Jay Moseley's KICKS Installation Guide](https://www.jaymoseley.com/hercules/kicks/index.htm)
+- [KICKS User's Guide](https://www.kicksfortso.com/User's%20Guide%201.5.0/Installation.shtml)
+
+### CardDemo on KICKS - Next Steps
+
+After KICKS is installed, use the pre-built configuration files in the `kicks/` directory:
+
+| Step | JCL Job | Description |
+|------|---------|-------------|
+| 1 | `DEFVSAM.jcl` | Define VSAM files on MVS |
+| 2 | `LOADUSR.jcl` | Load initial user data (ADMIN001/USER0001) |
+| 3 | `ASMFCT.jcl` | Assemble File Control Table |
+| 4 | `ASMPCT.jcl` | Assemble Program Control Table |
+| 5 | `ASMPPT.jcl` | Assemble Processing Program Table |
+| 6 | `ASMMAP.jcl` | Compile all 17 BMS mapsets |
+| 7 | `COMPCOB.jcl` | Compile all 18 COBOL programs |
+
+**Configuration files provided:**
+- `kicks/CARDFCT.asm` - File Control Table (6 VSAM files)
+- `kicks/CARDPCT.asm` - Program Control Table (17 transactions)
+- `kicks/CARDPPT.asm` - Processing Program Table (18 programs + 17 mapsets)
+
+For detailed instructions, see [`kicks/README.md`](kicks/README.md).
+
+> **Status:** This integration is experimental. The CardDemo application was designed for modern CICS/z/OS, and while KICKS provides CICS compatibility, some adaptation may be required.
 
 ## Running full batch 
    
